@@ -39,9 +39,9 @@ export function PromptCard({
       <p className="mt-4 text-sm leading-6 text-muted">{summary}</p>
 
       <div className="mt-5 flex flex-wrap gap-2">
-        {tags.map((tag) => (
+        {tags.map((tag, index) => (
           <span
-            key={tag}
+            key={`${tag}-${index}`}
             className="rounded-full border border-[color:theme(--color-border)] bg-white px-3 py-1.5 text-xs font-medium text-muted"
           >
             {tag}
@@ -53,7 +53,7 @@ export function PromptCard({
         <p className="text-xs text-muted">{tool}</p>
 
         <Link
-          href={`/discover/${slug}`}
+          href={`/discover/${slug ? encodeURIComponent(slug) : ""}`}
           className="rounded-full bg-ink px-4 py-2 text-xs font-semibold text-surface transition hover:opacity-90"
         >
           View prompt

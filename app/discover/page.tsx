@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { Navbar } from "@/components/layout/Navbar";
 import { PromptCard } from "@/components/prompts/prompt-card";
+import { FilterButtonGroup } from "@/components/ui/filter-button-group";
+import { useDebounce } from "@/lib/useDebounce";
 import { Search, SlidersHorizontal, Sparkles, X } from "lucide-react";
 
 type Prompt = {
@@ -98,34 +100,71 @@ const prompts: Prompt[] = [
   },
 ];
 
-const categories = ["All", "Image", "Editing", "PPT", "Writing", "Coding", "Study"];
-const tones = ["All", "Precise", "Gentle", "Structured", "Friendly", "Adaptive", "Direct", "Punchy", "Artful"];
-const tools = ["All", "Midjourney", "Photoshop", "PowerPoint", "ChatGPT", "Claude", "GPT-5", "Gemini", "Flux"];
+const categories = [
+  "All",
+  "Image",
+  "Editing",
+  "PPT",
+  "Writing",
+  "Coding",
+  "Study",
+];
+const tones = [
+  "All",
+  "Precise",
+  "Gentle",
+  "Structured",
+  "Friendly",
+  "Adaptive",
+  "Direct",
+  "Punchy",
+  "Artful",
+];
+const tools = [
+  "All",
+  "Midjourney",
+  "Photoshop",
+  "PowerPoint",
+  "ChatGPT",
+  "Claude",
+  "GPT-5",
+  "Gemini",
+  "Flux",
+];
 
 export default function DiscoverPage() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
   const [tone, setTone] = useState("All");
   const [tool, setTool] = useState("All");
+  const debouncedQuery = useDebounce(query, 300);
 
   const filteredPrompts = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = debouncedQuery.trim().toLowerCase();
 
     return prompts.filter((prompt) => {
       const matchesQuery =
         q.length === 0 ||
-        [prompt.title, prompt.summary, prompt.category, prompt.tone, prompt.tool, ...prompt.tags]
+        [
+          prompt.title,
+          prompt.summary,
+          prompt.category,
+          prompt.tone,
+          prompt.tool,
+          ...prompt.tags,
+        ]
           .join(" ")
           .toLowerCase()
           .includes(q);
 
-      const matchesCategory = category === "All" || prompt.category === category;
+      const matchesCategory =
+        category === "All" || prompt.category === category;
       const matchesTone = tone === "All" || prompt.tone === tone;
       const matchesTool = tool === "All" || prompt.tool === tool;
 
       return matchesQuery && matchesCategory && matchesTone && matchesTool;
     });
-  }, [query, category, tone, tool]);
+  }, [debouncedQuery, category, tone, tool]);
 
   const clearFilters = () => {
     setQuery("");
@@ -135,7 +174,10 @@ export default function DiscoverPage() {
   };
 
   const activeFilterCount =
-    Number(category !== "All") + Number(tone !== "All") + Number(tool !== "All") + Number(query.trim().length > 0);
+    Number(category !== "All") +
+    Number(tone !== "All") +
+    Number(tool !== "All") +
+    Number(query.trim().length > 0);
 
   return (
     <>
@@ -152,7 +194,8 @@ export default function DiscoverPage() {
                 Discover
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-muted sm:text-base">
-                Browse prompts by intent, tone, and tool. This section behaves like a library shelf, not a landing page.
+                Browse prompts by intent, tone, and tool. This section behaves
+                like a library shelf, not a landing page.
               </p>
             </div>
 
@@ -185,77 +228,35 @@ export default function DiscoverPage() {
 
                 <label className="mt-4 flex items-center gap-3 rounded-2xl border border-[color:theme(--color-border)] bg-white px-4 py-3 shadow-sm">
                   <Search className="h-4 w-4 text-muted" />
+                  <span className="sr-only">Search prompts</span>
                   <input
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     type="search"
                     placeholder="Search prompts"
+                    aria-label="Search prompts"
                     className="w-full bg-transparent text-sm text-ink outline-none placeholder:text-muted"
                   />
                 </label>
 
-                <div className="mt-5">
-                  <p className="text-xs font-semibold tracking-[0.18em] text-muted uppercase">
-                    Category
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {categories.map((item) => (
-                      <button
-                        key={item}
-                        onClick={() => setCategory(item)}
-                        className={`rounded-full px-3.5 py-2 text-sm font-medium transition ${
-                          category === item
-                            ? "bg-ink text-surface"
-                            : "border border-[color:theme(--color-border)] bg-white text-muted hover:bg-black/5"
-                        }`}
-                      >
-                        {item}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mt-5">
-                  <p className="text-xs font-semibold tracking-[0.18em] text-muted uppercase">
-                    Tone
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {tones.map((item) => (
-                      <button
-                        key={item}
-                        onClick={() => setTone(item)}
-                        className={`rounded-full px-3.5 py-2 text-sm font-medium transition ${
-                          tone === item
-                            ? "bg-ink text-surface"
-                            : "border border-[color:theme(--color-border)] bg-white text-muted hover:bg-black/5"
-                        }`}
-                      >
-                        {item}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mt-5">
-                  <p className="text-xs font-semibold tracking-[0.18em] text-muted uppercase">
-                    Tool
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {tools.map((item) => (
-                      <button
-                        key={item}
-                        onClick={() => setTool(item)}
-                        className={`rounded-full px-3.5 py-2 text-sm font-medium transition ${
-                          tool === item
-                            ? "bg-ink text-surface"
-                            : "border border-[color:theme(--color-border)] bg-white text-muted hover:bg-black/5"
-                        }`}
-                      >
-                        {item}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <FilterButtonGroup
+                  label="Category"
+                  options={categories}
+                  value={category}
+                  onChange={setCategory}
+                />
+                <FilterButtonGroup
+                  label="Tone"
+                  options={tones}
+                  value={tone}
+                  onChange={setTone}
+                />
+                <FilterButtonGroup
+                  label="Tool"
+                  options={tools}
+                  value={tool}
+                  onChange={setTool}
+                />
               </div>
 
               <div className="paper-card rounded-[2rem] p-5">
@@ -267,10 +268,20 @@ export default function DiscoverPage() {
                 </div>
 
                 <div className="mt-4 space-y-2 text-sm text-muted">
-                  <p><span className="font-semibold text-ink">Search:</span> {query.trim() || "None"}</p>
-                  <p><span className="font-semibold text-ink">Category:</span> {category}</p>
-                  <p><span className="font-semibold text-ink">Tone:</span> {tone}</p>
-                  <p><span className="font-semibold text-ink">Tool:</span> {tool}</p>
+                  <p>
+                    <span className="font-semibold text-ink">Search:</span>{" "}
+                    {query.trim() || "None"}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-ink">Category:</span>{" "}
+                    {category}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-ink">Tone:</span> {tone}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-ink">Tool:</span> {tool}
+                  </p>
                 </div>
               </div>
             </aside>
