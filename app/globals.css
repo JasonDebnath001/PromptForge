@@ -1,26 +1,78 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-paper: #f4efe6;
+  --color-paper-soft: #efe7da;
+  --color-surface: #fffaf1;
+  --color-surface-2: #f7f1e7;
+  --color-ink: #171311;
+  --color-muted: #665b52;
+  --color-border: rgba(23, 19, 17, 0.12);
+  --color-accent: #b24a2f;
+  --color-accent-soft: rgba(178, 74, 47, 0.12);
+  --shadow-soft: 0 18px 45px rgba(23, 19, 17, 0.08);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  body {
+    margin: 0;
+    color: theme(--color-ink);
+    background:
+      radial-gradient(
+        circle at top left,
+        rgba(178, 74, 47, 0.08),
+        transparent 32%
+      ),
+      radial-gradient(
+        circle at top right,
+        rgba(23, 19, 17, 0.05),
+        transparent 28%
+      ),
+      linear-gradient(
+        180deg,
+        theme(--color-paper) 0%,
+        theme(--color-paper-soft) 100%
+      );
+    font-family: Arial, Helvetica, sans-serif;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  ::selection {
+    background: rgba(178, 74, 47, 0.18);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.noise {
+  position: relative;
+}
+
+.noise::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.055;
+  background-image:
+    linear-gradient(rgba(23, 19, 17, 0.3) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(23, 19, 17, 0.3) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.9), transparent);
+}
+
+.paper-card {
+  background: linear-gradient(
+    180deg,
+    theme(--color-surface) 0%,
+    theme(--color-surface-2) 100%
+  );
+  border: 1px solid theme(--color-border);
+  box-shadow: theme(--shadow-soft);
 }
