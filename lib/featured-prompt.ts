@@ -149,12 +149,16 @@ export async function generateFeaturedPrompt(
     const style = pick(STYLES, hashString(dateKey) + 11);
     const category = pick(CATEGORIES, hashString(dateKey) + 19);
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
     const response = await fetch(GEMINI_ENDPOINT, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "x-goog-api-key": apiKey,
       },
+      signal: controller.signal,
       body: JSON.stringify({
         contents: [
           {
@@ -183,6 +187,8 @@ export async function generateFeaturedPrompt(
         },
       }),
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) return fallback;
 

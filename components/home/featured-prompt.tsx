@@ -8,13 +8,34 @@ const storageKeyFor = (dateKey: string) =>
   `promptforge:featured-prompt:${dateKey}`;
 
 export function FeaturedPromptSection() {
-  const dateKey = useMemo(() => getKolkataDateKey(), []);
+  const [dateKey, setDateKey] = useState(() => getKolkataDateKey());
   const [featuredPrompt, setFeaturedPrompt] = useState<FeaturedPrompt | null>(
     null,
   );
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+
+  // Refresh dateKey at Kolkata midnight
+  useEffect(() => {
+    const updateDateKey = () => {
+      setDateKey(getKolkataDateKey());
+    };
+
+    const now = new Date();
+    const kolkataTime = new Date(
+      now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }),
+    );
+    const nextMidnightKolkata = new Date(kolkataTime);
+    nextMidnightKolkata.setDate(nextMidnightKolkata.getDate() + 1);
+    nextMidnightKolkata.setHours(0, 0, 0, 0);
+
+    const timeUntilMidnight =
+      nextMidnightKolkata.getTime() - kolkataTime.getTime();
+    const timer = setTimeout(updateDateKey, timeUntilMidnight);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   const loadPrompt = async (forceRefresh = false) => {
     const storageKey = storageKeyFor(dateKey);
@@ -23,13 +44,26 @@ export function FeaturedPromptSection() {
       const cached = window.localStorage.getItem(storageKey);
       if (cached) {
         try {
-          const parsed = JSON.parse(cached) as FeaturedPrompt;
-          setFeaturedPrompt(parsed);
-          setLoading(false);
-          return;
+          const parsed = JSON.parse(cached);
+          // Validate required fields
+          if (
+            parsed &&
+            typeof parsed.title === "string" &&
+            typeof parsed.category === "string" &&
+            typeof parsed.tag === "string" &&
+            typeof parsed.prompt === "string" &&
+            typeof parsed.dateKey === "string" &&
+            (parsed.source === "gemini" || parsed.source === "fallback")
+          ) {
+            setFeaturedPrompt(parsed as FeaturedPrompt);
+            setLoading(false);
+            return;
+          }
         } catch {
-          window.localStorage.removeItem(storageKey);
+          // Ignore parse errors
         }
+        // Validation failed or parse error; remove invalid cache
+        window.localStorage.removeItem(storageKey);
       }
     }
 
