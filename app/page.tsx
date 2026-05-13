@@ -7,6 +7,7 @@ import {
   Presentation,
 } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
+import { FeaturedPromptSection } from "@/components/home/featured-prompt";
 
 const promptTags = [
   "Image Prompt",
@@ -115,47 +116,13 @@ export default function HomePage() {
                 </p>
               </div>
             </div>
+
+            <section className="mt-16">
+              <FeaturedPromptSection />
+            </section>
           </div>
 
-          <aside className="space-y-4 lg:pt-2">
-            <div className="paper-card rounded-[2rem] p-5 sm:p-6 lg:p-7">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold tracking-[0.18em] text-muted uppercase">
-                    Prompt note
-                  </p>
-                  <h2 className="mt-2 text-xl font-black tracking-tight text-ink">
-                    Today’s featured prompt
-                  </h2>
-                </div>
-                <div className="rounded-full border border-[color:theme(--color-border)] bg-white px-3 py-1 text-xs text-muted">
-                  Tailored
-                </div>
-              </div>
-
-              <div className="mt-6 rounded-[1.5rem] border border-[color:theme(--color-border)] bg-[#fffdf8] p-5">
-                <p className="text-xs font-semibold tracking-[0.18em] text-muted uppercase">
-                  Image editing
-                </p>
-                <p className="mt-3 text-base leading-7 text-ink">
-                  Edit this portrait naturally. Preserve the subject&apos;s
-                  identity, improve the lighting, soften the background, and
-                  keep the result realistic rather than polished into plastic.
-                </p>
-              </div>
-
-              <div className="mt-5 flex flex-wrap gap-2">
-                {promptTags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="rounded-full border border-[color:theme(--color-border)] bg-white px-3 py-1.5 text-xs font-medium text-muted"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </div>
-
+          <aside>
             <div className="paper-card rounded-[2rem] p-5 sm:p-6 lg:p-7">
               <p className="text-xs font-semibold tracking-[0.18em] text-muted uppercase">
                 Prompt library
