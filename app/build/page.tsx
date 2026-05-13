@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { buildPrompt } from "@/lib/prompt-builder";
+import { buildPrompt, type PromptInput } from "@/lib/prompt-builder";
 import { Navbar } from "@/components/layout/Navbar";
 import { Copy, Sparkles, Wand2, RotateCcw, Check } from "lucide-react";
 
@@ -32,19 +32,28 @@ const outputFormats = [
   "Structured bullet format",
 ];
 
-export default function BuildPage() {
-  const [taskType, setTaskType] = useState("Image generation");
-  const [topic, setTopic] = useState("a premium smartwatch product shot");
-  const [audience, setAudience] = useState("creative professionals");
-  const [tone, setTone] = useState("Precise");
-  const [model, setModel] = useState("GPT-5");
-  const [outputFormat, setOutputFormat] = useState("Single prompt");
-  const [constraints, setConstraints] = useState(
+const DEFAULT_FORM: PromptInput = {
+  taskType: "Image generation",
+  topic: "a premium smartwatch product shot",
+  audience: "creative professionals",
+  tone: "Precise",
+  model: "GPT-5",
+  outputFormat: "Single prompt",
+  constraints:
     "Keep it realistic, polished, and suitable for a high-end brand.",
-  );
-  const [extraNotes, setExtraNotes] = useState(
+  extraNotes:
     "Use warm studio lighting and leave space for the subject to breathe.",
-  );
+};
+
+export default function BuildPage() {
+  const [taskType, setTaskType] = useState(DEFAULT_FORM.taskType);
+  const [topic, setTopic] = useState(DEFAULT_FORM.topic);
+  const [audience, setAudience] = useState(DEFAULT_FORM.audience);
+  const [tone, setTone] = useState(DEFAULT_FORM.tone);
+  const [model, setModel] = useState(DEFAULT_FORM.model);
+  const [outputFormat, setOutputFormat] = useState(DEFAULT_FORM.outputFormat);
+  const [constraints, setConstraints] = useState(DEFAULT_FORM.constraints);
+  const [extraNotes, setExtraNotes] = useState(DEFAULT_FORM.extraNotes);
 
   const [generatedPrompt, setGeneratedPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -92,18 +101,14 @@ export default function BuildPage() {
   };
 
   const resetForm = () => {
-    setTaskType("Image generation");
-    setTopic("a premium smartwatch product shot");
-    setAudience("creative professionals");
-    setTone("Precise");
-    setModel("GPT-5");
-    setOutputFormat("Single prompt");
-    setConstraints(
-      "Keep it realistic, polished, and suitable for a high-end brand.",
-    );
-    setExtraNotes(
-      "Use warm studio lighting and leave space for the subject to breathe.",
-    );
+    setTaskType(DEFAULT_FORM.taskType);
+    setTopic(DEFAULT_FORM.topic);
+    setAudience(DEFAULT_FORM.audience);
+    setTone(DEFAULT_FORM.tone);
+    setModel(DEFAULT_FORM.model);
+    setOutputFormat(DEFAULT_FORM.outputFormat);
+    setConstraints(DEFAULT_FORM.constraints);
+    setExtraNotes(DEFAULT_FORM.extraNotes);
     setGeneratedPrompt("");
     setCopySuccess(false);
   };

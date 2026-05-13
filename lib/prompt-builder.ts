@@ -1,4 +1,4 @@
-type PromptInput = {
+export type PromptInput = {
   taskType: string;
   topic: string;
   audience: string;
@@ -21,86 +21,147 @@ export function buildPrompt(input: PromptInput) {
     extraNotes,
   } = input;
 
-  if (taskType === "Image generation") {
-    return `
-Create a high-quality AI image prompt for ${topic}.
+  // Sanitize inputs
+  const sanitized = {
+    taskType: taskType.trim() || "general task",
+    topic: topic.trim() || "general topic",
+    audience: audience.trim(),
+    tone: tone.trim() || "neutral",
+    model: model.trim(),
+    outputFormat: outputFormat.trim(),
+    constraints: constraints.trim(),
+    extraNotes: extraNotes.trim(),
+  };
 
-Style and tone:
-- ${tone}
+  const parts: string[] = [];
+
+  if (sanitized.taskType === "Image generation") {
+    parts.push(`Create a high-quality AI image prompt for ${sanitized.topic}.`);
+
+    parts.push(`Style and tone:
+- ${sanitized.tone}
 - visually refined
-- cinematic composition
+- cinematic composition`);
 
-Audience:
-${audience}
+    if (sanitized.audience) {
+      parts.push(`Audience:
+${sanitized.audience}`);
+    }
 
-Requirements:
-${constraints}
+    if (sanitized.constraints) {
+      parts.push(`Requirements:
+${sanitized.constraints}`);
+    }
 
-Additional direction:
-${extraNotes}
+    if (sanitized.extraNotes) {
+      parts.push(`Additional direction:
+${sanitized.extraNotes}`);
+    }
 
-Optimize the prompt for ${model}.
+    if (sanitized.model) {
+      parts.push(`Optimize the prompt for ${sanitized.model}.`);
+    }
 
-Output format:
-${outputFormat}
-`.trim();
+    if (sanitized.outputFormat) {
+      parts.push(`Output format:
+${sanitized.outputFormat}`);
+    }
+
+    return parts.join("\n\n").trim();
   }
 
-  if (taskType === "Presentation") {
-    return `
-Create a presentation prompt about ${topic}.
+  if (sanitized.taskType === "Presentation") {
+    parts.push(`Create a presentation prompt about ${sanitized.topic}.`);
 
-Audience:
-${audience}
+    if (sanitized.audience) {
+      parts.push(`Audience:
+${sanitized.audience}`);
+    }
 
-Tone:
-${tone}
+    if (sanitized.tone) {
+      parts.push(`Tone:
+${sanitized.tone}`);
+    }
 
-Requirements:
-${constraints}
+    if (sanitized.constraints) {
+      parts.push(`Requirements:
+${sanitized.constraints}`);
+    }
 
-Additional notes:
-${extraNotes}
+    if (sanitized.extraNotes) {
+      parts.push(`Additional notes:
+${sanitized.extraNotes}`);
+    }
 
-Optimize this for ${model} and structure it clearly for slide generation.
-`.trim();
+    if (sanitized.model) {
+      parts.push(
+        `Optimize this for ${sanitized.model} and structure it clearly for slide generation.`,
+      );
+    }
+
+    return parts.join("\n\n").trim();
   }
 
-  if (taskType === "Writing") {
-    return `
-Write a prompt for ${topic}.
+  if (sanitized.taskType === "Writing") {
+    parts.push(`Write a prompt for ${sanitized.topic}.`);
 
-Audience:
-${audience}
+    if (sanitized.audience) {
+      parts.push(`Audience:
+${sanitized.audience}`);
+    }
 
-Tone:
-${tone}
+    if (sanitized.tone) {
+      parts.push(`Tone:
+${sanitized.tone}`);
+    }
 
-Requirements:
-${constraints}
+    if (sanitized.constraints) {
+      parts.push(`Requirements:
+${sanitized.constraints}`);
+    }
 
-Additional context:
-${extraNotes}
+    if (sanitized.extraNotes) {
+      parts.push(`Additional context:
+${sanitized.extraNotes}`);
+    }
 
-Make the output natural, specific, and optimized for ${model}.
-`.trim();
+    if (sanitized.model) {
+      parts.push(
+        `Make the output natural, specific, and optimized for ${sanitized.model}.`,
+      );
+    }
+
+    return parts.join("\n\n").trim();
   }
 
-  return `
-Create a ${taskType.toLowerCase()} prompt for ${topic}.
+  // Default branch
+  parts.push(
+    `Create a ${sanitized.taskType.toLowerCase()} prompt for ${sanitized.topic}.`,
+  );
 
-Audience:
-${audience}
+  if (sanitized.audience) {
+    parts.push(`Audience:
+${sanitized.audience}`);
+  }
 
-Tone:
-${tone}
+  if (sanitized.tone) {
+    parts.push(`Tone:
+${sanitized.tone}`);
+  }
 
-Requirements:
-${constraints}
+  if (sanitized.constraints) {
+    parts.push(`Requirements:
+${sanitized.constraints}`);
+  }
 
-Additional notes:
-${extraNotes}
+  if (sanitized.extraNotes) {
+    parts.push(`Additional notes:
+${sanitized.extraNotes}`);
+  }
 
-Optimize for ${model}.
-`.trim();
+  if (sanitized.model) {
+    parts.push(`Optimize for ${sanitized.model}.`);
+  }
+
+  return parts.join("\n\n").trim();
 }
