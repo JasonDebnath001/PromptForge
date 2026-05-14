@@ -10,13 +10,19 @@ export default function HomePage() {
   const [idea, setIdea] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const topic = idea.trim();
     setIsSubmitting(true);
 
-    router.push(topic ? `/build?topic=${encodeURIComponent(topic)}` : "/build");
+    try {
+      await router.push(
+        topic ? `/build?topic=${encodeURIComponent(topic)}` : "/build",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -43,9 +49,9 @@ export default function HomePage() {
               </h1>
 
               <p className="mt-6 max-w-2xl text-base leading-7 text-muted sm:text-lg">
-                PromptForge turns a rough task into a prompt you can actually use.
-                No clutter, no generic template parade, just a clean starting point
-                for whatever you are trying to make.
+                PromptForge turns a rough task into a prompt you can actually
+                use. No clutter, no generic template parade, just a clean
+                starting point for whatever you are trying to make.
               </p>
 
               <form
@@ -89,8 +95,8 @@ export default function HomePage() {
                   <div className="mt-5 space-y-4 text-sm leading-7 text-muted">
                     <p>You bring the need. PromptForge shapes the wording.</p>
                     <p>
-                      The result is meant to feel direct, specific, and ready to use,
-                      without looking like a stock AI landing page.
+                      The result is meant to feel direct, specific, and ready to
+                      use, without looking like a stock AI landing page.
                     </p>
                   </div>
                 </div>

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-const GEMINI_MODEL = "gemini-3.1-flash-lite";
+const GEMINI_MODEL = "gemini-3.1-flash-latest";
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 export const runtime = "nodejs";
@@ -85,7 +85,7 @@ export async function POST(request: Request) {
       { prompt },
       {
         headers: {
-          "Cache-Control": "no-store, max-age=0",
+          "Cache-Control": "no-store",
         },
       },
     );
