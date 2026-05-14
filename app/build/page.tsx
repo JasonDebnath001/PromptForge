@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Check, Copy } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
@@ -10,7 +10,7 @@ type GeneratePromptResponse = {
   error?: string;
 };
 
-export default function BuildPage() {
+function BuildPageContent() {
   const searchParams = useSearchParams();
   const topic = searchParams.get("topic")?.trim() || "";
 
@@ -82,58 +82,65 @@ export default function BuildPage() {
   };
 
   return (
+    <main className="noise min-h-[calc(100vh-5rem)] px-4 py-10 sm:px-6 lg:px-8">
+      <section className="mx-auto flex min-h-[calc(100vh-7rem)] max-w-4xl items-center justify-center">
+        <div className="paper-card w-full rounded-[2.25rem] p-6 sm:p-8 lg:p-10">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold tracking-[0.2em] text-muted uppercase">
+                Prompt result
+              </p>
+              <h1 className="mt-2 text-3xl font-black tracking-tight text-ink sm:text-4xl">
+                {loading ? "Generating..." : "Ready"}
+              </h1>
+            </div>
+
+            <button
+              type="button"
+              onClick={copyPrompt}
+              disabled={!generatedPrompt || loading}
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-ink px-5 py-3 text-sm font-semibold text-surface transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {copySuccess ? (
+                <>
+                  <Check className="h-4 w-4" />
+                  Copied
+                </>
+              ) : (
+                <>
+                  <Copy className="h-4 w-4" />
+                  Copy
+                </>
+              )}
+            </button>
+          </div>
+
+          <div className="mt-6 rounded-[1.75rem] border border-[color:theme(--color-border)] bg-[#fffdf8] p-5 sm:p-6">
+            {loading ? (
+              <p className="text-sm leading-7 text-muted">
+                Generating your prompt...
+              </p>
+            ) : error ? (
+              <p className="text-sm leading-7 text-muted">{error}</p>
+            ) : (
+              <p className="whitespace-pre-wrap break-words text-sm leading-7 text-ink sm:text-base sm:leading-8">
+                {generatedPrompt}
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+export default function BuildPage() {
+  return (
     <>
       <Navbar />
-
-      <main className="noise min-h-[calc(100vh-5rem)] px-4 py-10 sm:px-6 lg:px-8">
-        <section className="mx-auto flex min-h-[calc(100vh-7rem)] max-w-4xl items-center justify-center">
-          <div className="paper-card w-full rounded-[2.25rem] p-6 sm:p-8 lg:p-10">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className="text-xs font-semibold tracking-[0.2em] text-muted uppercase">
-                  Prompt result
-                </p>
-                <h1 className="mt-2 text-3xl font-black tracking-tight text-ink sm:text-4xl">
-                  {loading ? "Generating..." : "Ready"}
-                </h1>
-              </div>
-
-              <button
-                type="button"
-                onClick={copyPrompt}
-                disabled={!generatedPrompt || loading}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-ink px-5 py-3 text-sm font-semibold text-surface transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {copySuccess ? (
-                  <>
-                    <Check className="h-4 w-4" />
-                    Copied
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-4 w-4" />
-                    Copy
-                  </>
-                )}
-              </button>
-            </div>
-
-            <div className="mt-6 rounded-[1.75rem] border border-[color:theme(--color-border)] bg-[#fffdf8] p-5 sm:p-6">
-              {loading ? (
-                <p className="text-sm leading-7 text-muted">
-                  Generating your prompt...
-                </p>
-              ) : error ? (
-                <p className="text-sm leading-7 text-muted">{error}</p>
-              ) : (
-                <p className="whitespace-pre-wrap break-words text-sm leading-7 text-ink sm:text-base sm:leading-8">
-                  {generatedPrompt}
-                </p>
-              )}
-            </div>
-          </div>
-        </section>
-      </main>
+      <Suspense fallback={null}>
+        <BuildPageContent />
+      </Suspense>
     </>
   );
 }
