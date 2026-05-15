@@ -1,167 +1,93 @@
+export type PromptMode = "simple" | "business";
+
 export type PromptInput = {
-  taskType: string;
+  mode: PromptMode;
   topic: string;
+  businessName: string;
+  businessType: string;
+  promptType: string;
+  task: string;
   audience: string;
+  goal: string;
   tone: string;
-  model: string;
-  outputFormat: string;
+  context: string;
   constraints: string;
+  outputFormat: string;
   extraNotes: string;
 };
 
-export function buildPrompt(input: PromptInput) {
-  const {
-    taskType,
-    topic,
-    audience,
-    tone,
-    model,
-    outputFormat,
-    constraints,
-    extraNotes,
-  } = input;
+function clean(value: string) {
+  return value.trim();
+}
 
-  // Sanitize inputs
-  const sanitized = {
-    taskType: taskType.trim() || "general task",
-    topic: topic.trim() || "general topic",
-    audience: audience.trim(),
-    tone: tone.trim() || "neutral",
-    model: model.trim(),
-    outputFormat: outputFormat.trim(),
-    constraints: constraints.trim(),
-    extraNotes: extraNotes.trim(),
+function addSection(parts: string[], heading: string, value: string) {
+  const trimmed = clean(value);
+  if (!trimmed) return;
+  parts.push(`${heading}:\n${trimmed}`);
+}
+
+export function buildPrompt(input: PromptInput) {
+  const sanitized: PromptInput = {
+    mode: input.mode === "business" ? "business" : "simple",
+    topic: clean(input.topic) || "general topic",
+    businessName: clean(input.businessName),
+    businessType: clean(input.businessType),
+    promptType: clean(input.promptType) || "general prompt",
+    task: clean(input.task) || clean(input.topic) || "general task",
+    audience: clean(input.audience),
+    goal: clean(input.goal),
+    tone: clean(input.tone) || "clear and useful",
+    context: clean(input.context),
+    constraints: clean(input.constraints),
+    outputFormat: clean(input.outputFormat),
+    extraNotes: clean(input.extraNotes),
   };
 
   const parts: string[] = [];
 
-  if (sanitized.taskType === "Image generation") {
-    parts.push(`Create a high-quality AI image prompt for ${sanitized.topic}.`);
+  if (sanitized.mode === "business") {
+    parts.push(
+      `Create a polished ${sanitized.promptType.toLowerCase()} prompt for ${sanitized.businessName || "a business"}.`,
+    );
+    parts.push(
+      `Use a ${sanitized.tone} tone and make the prompt detailed enough that the AI understands the brand context, the task, the audience, and the desired result without needing follow-up questions.`,
+    );
 
-    parts.push(`Style and tone:
-- ${sanitized.tone}
-- visually refined
-- cinematic composition`);
+    addSection(parts, "Business name", sanitized.businessName);
+    addSection(parts, "Business type", sanitized.businessType);
+    addSection(parts, "Primary task", sanitized.task);
+    addSection(parts, "Audience", sanitized.audience);
+    addSection(parts, "Goal", sanitized.goal);
+    addSection(parts, "Context", sanitized.context);
+    addSection(parts, "Constraints", sanitized.constraints);
+    addSection(parts, "Output format", sanitized.outputFormat);
+    addSection(parts, "Additional notes", sanitized.extraNotes);
 
-    if (sanitized.audience) {
-      parts.push(`Audience:
-${sanitized.audience}`);
-    }
-
-    if (sanitized.constraints) {
-      parts.push(`Requirements:
-${sanitized.constraints}`);
-    }
-
-    if (sanitized.extraNotes) {
-      parts.push(`Additional direction:
-${sanitized.extraNotes}`);
-    }
-
-    if (sanitized.model) {
-      parts.push(`Optimize the prompt for ${sanitized.model}.`);
-    }
-
-    if (sanitized.outputFormat) {
-      parts.push(`Output format:
-${sanitized.outputFormat}`);
-    }
+    parts.push(
+      "Write the final prompt so it is ready to paste into an AI tool, with enough specificity to produce a strong first draft.",
+    );
 
     return parts.join("\n\n").trim();
   }
 
-  if (sanitized.taskType === "Presentation") {
-    parts.push(`Create a presentation prompt about ${sanitized.topic}.`);
-
-    if (sanitized.audience) {
-      parts.push(`Audience:
-${sanitized.audience}`);
-    }
-
-    if (sanitized.tone) {
-      parts.push(`Tone:
-${sanitized.tone}`);
-    }
-
-    if (sanitized.constraints) {
-      parts.push(`Requirements:
-${sanitized.constraints}`);
-    }
-
-    if (sanitized.extraNotes) {
-      parts.push(`Additional notes:
-${sanitized.extraNotes}`);
-    }
-
-    if (sanitized.model) {
-      parts.push(
-        `Optimize this for ${sanitized.model} and structure it clearly for slide generation.`,
-      );
-    }
-
-    return parts.join("\n\n").trim();
-  }
-
-  if (sanitized.taskType === "Writing") {
-    parts.push(`Write a prompt for ${sanitized.topic}.`);
-
-    if (sanitized.audience) {
-      parts.push(`Audience:
-${sanitized.audience}`);
-    }
-
-    if (sanitized.tone) {
-      parts.push(`Tone:
-${sanitized.tone}`);
-    }
-
-    if (sanitized.constraints) {
-      parts.push(`Requirements:
-${sanitized.constraints}`);
-    }
-
-    if (sanitized.extraNotes) {
-      parts.push(`Additional context:
-${sanitized.extraNotes}`);
-    }
-
-    if (sanitized.model) {
-      parts.push(
-        `Make the output natural, specific, and optimized for ${sanitized.model}.`,
-      );
-    }
-
-    return parts.join("\n\n").trim();
-  }
-
-  // Default branch
   parts.push(
-    `Create a ${sanitized.taskType.toLowerCase()} prompt for ${sanitized.topic}.`,
+    `Create a detailed AI prompt for ${sanitized.topic}. The result should be slightly more specific than a bare request, but still easy to paste into an AI tool.`,
+  );
+  parts.push(
+    `Use a ${sanitized.tone} tone and include the useful context, expected outcome, and any important constraints so the prompt feels complete without becoming bloated.`,
   );
 
-  if (sanitized.audience) {
-    parts.push(`Audience:
-${sanitized.audience}`);
-  }
+  addSection(parts, "Task", sanitized.task);
+  addSection(parts, "Audience", sanitized.audience);
+  addSection(parts, "Goal", sanitized.goal);
+  addSection(parts, "Context", sanitized.context);
+  addSection(parts, "Constraints", sanitized.constraints);
+  addSection(parts, "Output format", sanitized.outputFormat);
+  addSection(parts, "Additional notes", sanitized.extraNotes);
 
-  if (sanitized.tone) {
-    parts.push(`Tone:
-${sanitized.tone}`);
-  }
-
-  if (sanitized.constraints) {
-    parts.push(`Requirements:
-${sanitized.constraints}`);
-  }
-
-  if (sanitized.extraNotes) {
-    parts.push(`Additional notes:
-${sanitized.extraNotes}`);
-  }
-
-  if (sanitized.model) {
-    parts.push(`Optimize for ${sanitized.model}.`);
-  }
+  parts.push(
+    "Return only the final prompt text. Make it practical, specific, and ready to use immediately.",
+  );
 
   return parts.join("\n\n").trim();
 }
