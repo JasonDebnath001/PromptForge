@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Check, Copy } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
@@ -10,9 +10,54 @@ type GeneratePromptResponse = {
   error?: string;
 };
 
+type Brief = {
+  businessName: string;
+  businessType: string;
+  topic: string;
+  task: string;
+  audience: string;
+  tone: string;
+  outputLength: string;
+  platform: string;
+  keyPoints: string;
+  notes: string;
+};
+
+function readBrief(searchParams: ReturnType<typeof useSearchParams>): Brief {
+  return {
+    businessName: searchParams.get("businessName")?.trim() || "",
+    businessType: searchParams.get("businessType")?.trim() || "",
+    topic: searchParams.get("topic")?.trim() || "",
+    task: searchParams.get("task")?.trim() || "",
+    audience: searchParams.get("audience")?.trim() || "",
+    tone: searchParams.get("tone")?.trim() || "",
+    outputLength: searchParams.get("outputLength")?.trim() || "",
+    platform: searchParams.get("platform")?.trim() || "",
+    keyPoints: searchParams.get("keyPoints")?.trim() || "",
+    notes: searchParams.get("notes")?.trim() || "",
+  };
+}
+
+function toLabel(value: string) {
+  return value || "Not specified";
+}
+
+function briefToCards(brief: Brief) {
+  return [
+    { label: "Business name", value: toLabel(brief.businessName) },
+    { label: "Business type", value: toLabel(brief.businessType) },
+    { label: "Task", value: toLabel(brief.task) },
+    { label: "Topic", value: toLabel(brief.topic) },
+    { label: "Audience", value: toLabel(brief.audience) },
+    { label: "Tone", value: toLabel(brief.tone) },
+    { label: "Length", value: toLabel(brief.outputLength) },
+    { label: "Platform", value: toLabel(brief.platform) },
+  ];
+}
+
 function BuildPageContent() {
   const searchParams = useSearchParams();
-  const topic = searchParams.get("topic")?.trim() || "";
+  const brief = useMemo(() => readBrief(searchParams), [searchParams]);
 
   const [generatedPrompt, setGeneratedPrompt] = useState("");
   const [loading, setLoading] = useState(true);
@@ -34,13 +79,26 @@ function BuildPageContent() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ topic }),
+          body: JSON.stringify(brief),
         });
 
-        const data = (await response.json()) as GeneratePromptResponse;
+        const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data.error || "Prompt generation failed.");
+          throw new Error(
+            typeof data?.error === "string"
+              ? data.error
+              : "Prompt generation failed.",
+          );
+        }
+
+        if (
+          !data ||
+          typeof data !== "object" ||
+          (data.prompt !== undefined && typeof data.prompt !== "string") ||
+          (data.error !== undefined && typeof data.error !== "string")
+        ) {
+          throw new Error("Invalid response from server.");
         }
 
         if (!cancelled) {
@@ -64,7 +122,7 @@ function BuildPageContent() {
     return () => {
       cancelled = true;
     };
-  }, [topic]);
+  }, [brief]);
 
   const copyPrompt = async () => {
     if (!generatedPrompt) return;
@@ -81,9 +139,11 @@ function BuildPageContent() {
     }
   };
 
+  const briefCards = briefToCards(brief);
+
   return (
     <main className="noise min-h-[calc(100vh-5rem)] px-4 py-10 sm:px-6 lg:px-8">
-      <section className="mx-auto flex min-h-[calc(100vh-7rem)] max-w-4xl items-center justify-center">
+      <section className="mx-auto flex min-h-[calc(100vh-7rem)] max-w-5xl items-center justify-center">
         <div className="paper-card w-full rounded-[2.25rem] p-6 sm:p-8 lg:p-10">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
@@ -113,6 +173,20 @@ function BuildPageContent() {
                 </>
               )}
             </button>
+          </div>
+
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {briefCards.map((item) => (
+              <div
+                key={item.label}
+                className="rounded-[1.5rem] border border-[color:theme(--color-border)] bg-[#fffdf8] p-4"
+              >
+                <p className="text-[11px] font-semibold tracking-[0.18em] text-muted uppercase">
+                  {item.label}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-ink">{item.value}</p>
+              </div>
+            ))}
           </div>
 
           <div className="mt-6 rounded-[1.75rem] border border-[color:theme(--color-border)] bg-[#fffdf8] p-5 sm:p-6">
