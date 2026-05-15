@@ -27,13 +27,15 @@ function addSection(parts: string[], heading: string, value: string) {
 }
 
 export function buildPrompt(input: PromptInput) {
+  const sanitizedTopic = clean(input.topic);
+
   const sanitized: PromptInput = {
     mode: input.mode === "business" ? "business" : "simple",
-    topic: clean(input.topic) || "general topic",
+    topic: sanitizedTopic || "general topic",
     businessName: clean(input.businessName),
     businessType: clean(input.businessType),
     promptType: clean(input.promptType) || "general prompt",
-    task: clean(input.task) || clean(input.topic) || "general task",
+    task: clean(input.task) || sanitizedTopic || "general task",
     audience: clean(input.audience),
     goal: clean(input.goal),
     tone: clean(input.tone) || "clear and useful",

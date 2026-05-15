@@ -82,10 +82,23 @@ function BuildPageContent() {
           body: JSON.stringify(brief),
         });
 
-        const data = (await response.json()) as GeneratePromptResponse;
+        const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data.error || "Prompt generation failed.");
+          throw new Error(
+            typeof data?.error === "string"
+              ? data.error
+              : "Prompt generation failed.",
+          );
+        }
+
+        if (
+          !data ||
+          typeof data !== "object" ||
+          (data.prompt !== undefined && typeof data.prompt !== "string") ||
+          (data.error !== undefined && typeof data.error !== "string")
+        ) {
+          throw new Error("Invalid response from server.");
         }
 
         if (!cancelled) {

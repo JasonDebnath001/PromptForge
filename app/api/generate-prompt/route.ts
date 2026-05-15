@@ -46,7 +46,27 @@ function buildBrief(input: Brief) {
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json().catch(() => null)) as Brief | null;
+    const rawBody = await request.json().catch(() => null);
+    const body = (() => {
+      if (!rawBody || typeof rawBody !== "object" || Array.isArray(rawBody)) {
+        return null;
+      }
+
+      const validated: Brief = {};
+      for (const [key, value] of Object.entries(rawBody)) {
+        if (value == null) continue;
+        if (typeof value !== "string") {
+          return null;
+        }
+        (validated as Record<string, string>)[key] = value;
+      }
+
+      return validated;
+    })();
+
+    if (rawBody !== null && body === null) {
+      return NextResponse.json({ error: "Invalid brief" }, { status: 400 });
+    }
 
     const apiKey = process.env.GEMINI_API_KEY?.trim();
     if (!apiKey) {
@@ -62,37 +82,46 @@ export async function POST(request: Request) {
       GEMINI_MODEL,
     )}:generateContent`;
 
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": apiKey,
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: "user",
-            parts: [
-              {
-                text:
-                  "You are a senior prompt engineer.\n" +
-                  "Turn the following brief into one polished, ready-to-paste AI prompt.\n" +
-                  "The prompt should be detailed and accurate, but still reasonably short, around 120 to 180 words.\n" +
-                  "Use only the information provided. Do not invent facts.\n" +
-                  "Keep it in plain text.\n" +
-                  "Do not use markdown, lists, headings, or code fences.\n" +
-                  "Write the prompt so it can be pasted into another AI tool and immediately used.\n\n" +
-                  `Brief:\n${brief}`,
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.55,
-          maxOutputTokens: 320,
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30_000);
+
+    let response: Response;
+    try {
+      response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey,
         },
-      }),
-    });
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [
+                {
+                  text:
+                    "You are a senior prompt engineer.\n" +
+                    "Turn the following brief into one polished, ready-to-paste AI prompt.\n" +
+                    "The prompt should be detailed and accurate, but still reasonably short, around 120 to 180 words.\n" +
+                    "Use only the information provided. Do not invent facts.\n" +
+                    "Keep it in plain text.\n" +
+                    "Do not use markdown, lists, headings, or code fences.\n" +
+                    "Write the prompt so it can be pasted into another AI tool and immediately used.\n\n" +
+                    `Brief:\n${brief}`,
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.55,
+            maxOutputTokens: 320,
+          },
+        }),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
 
     const rawText = await response.text();
 
@@ -105,6 +134,9 @@ export async function POST(request: Request) {
         // Keep raw text if it is not JSON.
       }
 
+      const status =
+        response.status >= 400 && response.status < 500 ? response.status : 502;
+
       console.error("Gemini request failed", {
         status: response.status,
         model: GEMINI_MODEL,
@@ -114,22 +146,46 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error: "Gemini request failed.",
-          status: response.status,
+          status,
           model: GEMINI_MODEL,
-          details: upstreamError,
+          ...(process.env.NODE_ENV !== "production" ? { upstreamError } : {}),
         },
-        { status: 500 },
+        { status },
       );
     }
 
-    const data = JSON.parse(rawText) as {
+    let data: {
       candidates?: Array<{
         content?: { parts?: Array<{ text?: string }> };
       }>;
-    };
+    } | null = null;
+
+    try {
+      data = JSON.parse(rawText);
+    } catch (parseError) {
+      console.error("Failed to parse Gemini response", {
+        error: parseError,
+        rawText,
+      });
+
+      return NextResponse.json(
+        {
+          error: "Invalid response format from Gemini upstream.",
+          ...(process.env.NODE_ENV !== "production"
+            ? {
+                details:
+                  parseError instanceof Error
+                    ? parseError.message
+                    : String(parseError),
+              }
+            : {}),
+        },
+        { status: 502 },
+      );
+    }
 
     const generatedText =
-      data.candidates?.[0]?.content?.parts
+      data?.candidates?.[0]?.content?.parts
         ?.map((part) => part.text ?? "")
         .join("") ?? "";
 
@@ -146,13 +202,22 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error(error);
 
-    return NextResponse.json(
-      {
-        error: "Unable to generate prompt.",
-        details:
-          error instanceof Error ? error.message : "Unknown server error",
-      },
-      { status: 500 },
-    );
+    if (error instanceof Error && error.name === "AbortError") {
+      return NextResponse.json(
+        { error: "Gemini request timed out." },
+        { status: 504 },
+      );
+    }
+
+    const body: { error: string; details?: string } = {
+      error: "Unable to generate prompt.",
+    };
+
+    if (process.env.NODE_ENV !== "production") {
+      body.details =
+        error instanceof Error ? error.message : "Unknown server error";
+    }
+
+    return NextResponse.json(body, { status: 500 });
   }
 }

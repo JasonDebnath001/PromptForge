@@ -98,13 +98,17 @@ function buildQueryParams(form: FormState) {
 function FieldLabel({
   title,
   description,
+  htmlFor,
 }: {
   title: string;
   description?: string;
+  htmlFor?: string;
 }) {
   return (
     <div className="mb-2">
-      <p className="text-sm font-semibold text-ink">{title}</p>
+      <label htmlFor={htmlFor} className="text-sm font-semibold text-ink">
+        {title}
+      </label>
       {description ? (
         <p className="mt-1 text-xs leading-5 text-muted">{description}</p>
       ) : null}
@@ -116,6 +120,7 @@ export default function HomePage() {
   const router = useRouter();
   const [form, setForm] = useState<FormState>(INITIAL_STATE);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const formSummary = useMemo(() => {
     const pieces = [form.businessName, form.topic, form.task].filter(Boolean);
@@ -129,16 +134,26 @@ export default function HomePage() {
   ) => {
     const { name, value } = event.target;
     setForm((current) => ({ ...current, [name]: value }));
+    setFormError(null);
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
+    setFormError(null);
 
     try {
       const params = buildQueryParams(form);
       const query = params.toString();
-      router.push(query ? `/build?${query}` : "/build");
+
+      if (!query) {
+        setFormError(
+          "Please provide at least one detail before generating a prompt.",
+        );
+        return;
+      }
+
+      router.push(`/build?${query}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -181,9 +196,11 @@ export default function HomePage() {
                   <div className="md:col-span-2">
                     <FieldLabel
                       title="Business name"
+                      htmlFor="businessName"
                       description="Optional. Helps ground the prompt in the brand or company name."
                     />
                     <input
+                      id="businessName"
                       name="businessName"
                       value={form.businessName}
                       onChange={handleChange}
@@ -195,9 +212,11 @@ export default function HomePage() {
                   <div>
                     <FieldLabel
                       title="Business type"
+                      htmlFor="businessType"
                       description="Choose the closest fit for the brand."
                     />
                     <select
+                      id="businessType"
                       name="businessType"
                       value={form.businessType}
                       onChange={handleChange}
@@ -215,9 +234,11 @@ export default function HomePage() {
                   <div>
                     <FieldLabel
                       title="Task"
+                      htmlFor="task"
                       description="What should the AI actually produce?"
                     />
                     <select
+                      id="task"
                       name="task"
                       value={form.task}
                       onChange={handleChange}
@@ -235,9 +256,11 @@ export default function HomePage() {
                   <div>
                     <FieldLabel
                       title="Topic"
+                      htmlFor="topic"
                       description="The subject or campaign theme."
                     />
                     <input
+                      id="topic"
                       name="topic"
                       value={form.topic}
                       onChange={handleChange}
@@ -249,9 +272,11 @@ export default function HomePage() {
                   <div>
                     <FieldLabel
                       title="Target audience"
+                      htmlFor="audience"
                       description="Who should the prompt speak to?"
                     />
                     <input
+                      id="audience"
                       name="audience"
                       value={form.audience}
                       onChange={handleChange}
@@ -263,9 +288,11 @@ export default function HomePage() {
                   <div>
                     <FieldLabel
                       title="Tone"
+                      htmlFor="tone"
                       description="This sets the mood of the final prompt."
                     />
                     <select
+                      id="tone"
                       name="tone"
                       value={form.tone}
                       onChange={handleChange}
@@ -283,9 +310,11 @@ export default function HomePage() {
                   <div>
                     <FieldLabel
                       title="Prompt length"
+                      htmlFor="outputLength"
                       description="How detailed should the generated prompt be?"
                     />
                     <select
+                      id="outputLength"
                       name="outputLength"
                       value={form.outputLength}
                       onChange={handleChange}
@@ -303,9 +332,11 @@ export default function HomePage() {
                   <div>
                     <FieldLabel
                       title="Platform"
+                      htmlFor="platform"
                       description="Where will this prompt be used?"
                     />
                     <select
+                      id="platform"
                       name="platform"
                       value={form.platform}
                       onChange={handleChange}
@@ -323,9 +354,11 @@ export default function HomePage() {
                   <div className="md:col-span-2">
                     <FieldLabel
                       title="Key details"
+                      htmlFor="keyPoints"
                       description="Bullet-like shorthand is fine. List the facts, constraints, offers, or must-haves."
                     />
                     <textarea
+                      id="keyPoints"
                       name="keyPoints"
                       value={form.keyPoints}
                       onChange={handleChange}
@@ -338,9 +371,11 @@ export default function HomePage() {
                   <div className="md:col-span-2">
                     <FieldLabel
                       title="Extra notes"
+                      htmlFor="notes"
                       description="Anything special the AI should know about voice, format, restrictions, or goals."
                     />
                     <textarea
+                      id="notes"
                       name="notes"
                       value={form.notes}
                       onChange={handleChange}
@@ -350,6 +385,12 @@ export default function HomePage() {
                     />
                   </div>
                 </div>
+
+                {formError ? (
+                  <p className="mt-4 text-sm leading-6 text-red-600">
+                    {formError}
+                  </p>
+                ) : null}
 
                 <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm leading-6 text-muted">{formSummary}</p>
