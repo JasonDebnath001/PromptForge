@@ -1,9 +1,11 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, Sparkles } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
+
+type Mode = "guided" | "simple";
 
 type GeneratePromptResponse = {
   prompt?: string;
@@ -11,6 +13,8 @@ type GeneratePromptResponse = {
 };
 
 type Brief = {
+  mode: Mode;
+  description: string;
   businessName: string;
   businessType: string;
   topic: string;
@@ -24,7 +28,18 @@ type Brief = {
 };
 
 function readBrief(searchParams: ReturnType<typeof useSearchParams>): Brief {
+  const mode = searchParams.get("mode") === "simple" ? "simple" : "guided";
+  let description = searchParams.get("description")?.trim() || "";
+
+  if (searchParams.get("description_stored") === "true") {
+    if (typeof window !== "undefined") {
+      description = window.sessionStorage.getItem("forge_description") || "";
+    }
+  }
+
   return {
+    mode,
+    description,
     businessName: searchParams.get("businessName")?.trim() || "",
     businessType: searchParams.get("businessType")?.trim() || "",
     topic: searchParams.get("topic")?.trim() || "",
@@ -36,23 +51,6 @@ function readBrief(searchParams: ReturnType<typeof useSearchParams>): Brief {
     keyPoints: searchParams.get("keyPoints")?.trim() || "",
     notes: searchParams.get("notes")?.trim() || "",
   };
-}
-
-function toLabel(value: string) {
-  return value || "Not specified";
-}
-
-function briefToCards(brief: Brief) {
-  return [
-    { label: "Business name", value: toLabel(brief.businessName) },
-    { label: "Business type", value: toLabel(brief.businessType) },
-    { label: "Task", value: toLabel(brief.task) },
-    { label: "Topic", value: toLabel(brief.topic) },
-    { label: "Audience", value: toLabel(brief.audience) },
-    { label: "Tone", value: toLabel(brief.tone) },
-    { label: "Length", value: toLabel(brief.outputLength) },
-    { label: "Platform", value: toLabel(brief.platform) },
-  ];
 }
 
 function BuildPageContent() {
@@ -82,7 +80,7 @@ function BuildPageContent() {
           body: JSON.stringify(brief),
         });
 
-        const data = await response.json();
+        const data: GeneratePromptResponse = await response.json();
 
         if (!response.ok) {
           throw new Error(
@@ -130,91 +128,93 @@ function BuildPageContent() {
     try {
       await navigator.clipboard.writeText(generatedPrompt);
       setCopySuccess(true);
-
-      window.setTimeout(() => {
-        setCopySuccess(false);
-      }, 1500);
+      window.setTimeout(() => setCopySuccess(false), 1500);
     } catch (err) {
       console.error(err);
     }
   };
 
-  const briefCards = briefToCards(brief);
-
   return (
-    <main className="noise min-h-[calc(100vh-5rem)] px-4 py-10 sm:px-6 lg:px-8">
-      <section className="mx-auto flex min-h-[calc(100vh-7rem)] max-w-5xl items-center justify-center">
-        <div className="paper-card w-full rounded-[2.25rem] p-6 sm:p-8 lg:p-10">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <p className="text-xs font-semibold tracking-[0.2em] text-muted uppercase">
-                Prompt result
-              </p>
-              <h1 className="mt-2 text-3xl font-black tracking-tight text-ink sm:text-4xl">
-                {loading ? "Generating..." : "Ready"}
-              </h1>
+    <>
+      <Navbar />
+      <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+        <section className="paper-card relative overflow-hidden rounded-[2.5rem] p-6 sm:p-8">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(178,74,47,0.12),transparent_34%),radial-gradient(circle_at_top_right,rgba(23,19,17,0.08),transparent_30%)]" />
+          <div className="relative flex flex-col gap-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold tracking-[0.2em] text-muted uppercase">
+                  {brief.mode === "simple" ? "Simple mode" : "Guided mode"}
+                </p>
+                <h1 className="mt-3 text-3xl font-black leading-tight text-ink sm:text-5xl">
+                  {loading
+                    ? "Forging your prompt..."
+                    : error
+                      ? "The forge cooled down"
+                      : "Your prompt is ready"}
+                </h1>
+                <p className="mt-3 max-w-2xl text-sm leading-7 text-muted sm:text-base">
+                  {brief.mode === "simple"
+                    ? "A plain-language request went into the kiln. The result below is ready to copy."
+                    : "Your structured brief went into the kiln. The result below is tuned to your details."}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={copyPrompt}
+                disabled={!generatedPrompt || loading || !!error}
+                className="inline-flex items-center justify-center gap-2 self-start rounded-full border border-[color:theme(--color-border)] bg-white/80 px-4 py-3 text-sm font-semibold text-ink transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {copySuccess ? (
+                  <Check className="h-4 w-4" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+                {copySuccess ? "Copied" : "Copy prompt"}
+              </button>
             </div>
 
-            <button
-              type="button"
-              onClick={copyPrompt}
-              disabled={!generatedPrompt || loading}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-ink px-5 py-3 text-sm font-semibold text-surface transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {copySuccess ? (
-                <>
-                  <Check className="h-4 w-4" />
-                  Copied
-                </>
+            <div className="rounded-[2rem] border border-[color:theme(--color-border)] bg-white/75 p-5 shadow-none sm:p-6">
+              {loading ? (
+                <div className="space-y-5">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-[color:theme(--color-border)] bg-white/80 px-3 py-2 text-xs font-semibold tracking-[0.2em] text-muted uppercase">
+                    <Sparkles className="h-4 w-4" />
+                    Generating
+                  </div>
+                  <div className="space-y-3">
+                    <div className="h-4 w-1/4 animate-pulse rounded-full bg-black/10" />
+                    <div className="h-4 w-5/6 animate-pulse rounded-full bg-black/10" />
+                    <div className="h-4 w-4/5 animate-pulse rounded-full bg-black/10" />
+                    <div className="h-4 w-3/4 animate-pulse rounded-full bg-black/10" />
+                    <div className="h-4 w-2/3 animate-pulse rounded-full bg-black/10" />
+                  </div>
+                  <div className="rounded-[1.5rem] border border-dashed border-[color:theme(--color-border)] bg-white/70 p-4">
+                    <div className="space-y-3">
+                      <div className="h-3 w-2/5 animate-pulse rounded-full bg-black/10" />
+                      <div className="h-3 w-full animate-pulse rounded-full bg-black/10" />
+                      <div className="h-3 w-11/12 animate-pulse rounded-full bg-black/10" />
+                      <div className="h-3 w-4/5 animate-pulse rounded-full bg-black/10" />
+                    </div>
+                  </div>
+                </div>
+              ) : error ? (
+                <div className="rounded-[1.5rem] border border-red-200 bg-red-50 p-5 text-sm leading-7 text-red-700">
+                  {error}
+                </div>
               ) : (
-                <>
-                  <Copy className="h-4 w-4" />
-                  Copy
-                </>
+                <pre className="whitespace-pre-wrap text-[15px] leading-8 text-ink">
+                  {generatedPrompt}
+                </pre>
               )}
-            </button>
+            </div>
           </div>
-
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {briefCards.map((item) => (
-              <div
-                key={item.label}
-                className="rounded-[1.5rem] border border-[color:theme(--color-border)] bg-[#fffdf8] p-4"
-              >
-                <p className="text-[11px] font-semibold tracking-[0.18em] text-muted uppercase">
-                  {item.label}
-                </p>
-                <p className="mt-2 text-sm leading-6 text-ink">{item.value}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-6 rounded-[1.75rem] border border-[color:theme(--color-border)] bg-[#fffdf8] p-5 sm:p-6">
-            {loading ? (
-              <p className="text-sm leading-7 text-muted">
-                Generating your prompt...
-              </p>
-            ) : error ? (
-              <p className="text-sm leading-7 text-muted">{error}</p>
-            ) : (
-              <p className="whitespace-pre-wrap break-words text-sm leading-7 text-ink sm:text-base sm:leading-8">
-                {generatedPrompt}
-              </p>
-            )}
-          </div>
-        </div>
-      </section>
-    </main>
+        </section>
+      </main>
+    </>
   );
 }
 
 export default function BuildPage() {
-  return (
-    <>
-      <Navbar />
-      <Suspense fallback={null}>
-        <BuildPageContent />
-      </Suspense>
-    </>
-  );
+  return <BuildPageContent />;
 }

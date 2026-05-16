@@ -6,7 +6,9 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
 
-type FormState = {
+type Mode = "guided" | "simple";
+
+type GuidedFormState = {
   businessName: string;
   businessType: string;
   topic: string;
@@ -19,7 +21,7 @@ type FormState = {
   notes: string;
 };
 
-const INITIAL_STATE: FormState = {
+const INITIAL_GUIDED_STATE: GuidedFormState = {
   businessName: "",
   businessType: "",
   topic: "",
@@ -82,10 +84,29 @@ const PLATFORM_OPTIONS = [
   "Other",
 ];
 
-function buildQueryParams(form: FormState) {
+function buildQueryParams(
+  mode: Mode,
+  guidedForm: GuidedFormState,
+  description: string,
+) {
   const params = new URLSearchParams();
+  params.set("mode", mode);
+  if (mode === "simple") {
+    const trimmed = description.trim();
+    if (trimmed) {
+      if (trimmed.length > 2000) {
+        if (typeof window !== "undefined") {
+          window.sessionStorage.setItem("forge_description", trimmed);
+        }
+        params.set("description_stored", "true");
+      } else {
+        params.set("description", trimmed);
+      }
+    }
+    return params;
+  }
 
-  Object.entries(form).forEach(([key, value]) => {
+  Object.entries(guidedForm).forEach(([key, value]) => {
     const trimmed = value.trim();
     if (trimmed) {
       params.set(key, trimmed);
@@ -105,55 +126,63 @@ function FieldLabel({
   htmlFor?: string;
 }) {
   return (
-    <div className="mb-2">
-      <label htmlFor={htmlFor} className="text-sm font-semibold text-ink">
-        {title}
-      </label>
+    <label htmlFor={htmlFor} className="block">
+      <span className="block text-sm font-semibold text-ink">{title}</span>
       {description ? (
-        <p className="mt-1 text-xs leading-5 text-muted">{description}</p>
+        <span className="mt-1 block text-sm leading-6 text-muted">{description}</span>
       ) : null}
-    </div>
+    </label>
   );
 }
 
 export default function HomePage() {
   const router = useRouter();
-  const [form, setForm] = useState<FormState>(INITIAL_STATE);
+  const [mode, setMode] = useState<Mode>("guided");
+  const [guidedForm, setGuidedForm] = useState<GuidedFormState>(INITIAL_GUIDED_STATE);
+  const [description, setDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const formSummary = useMemo(() => {
-    const pieces = [form.businessName, form.topic, form.task].filter(Boolean);
+  const guidedSummary = useMemo(() => {
+    const pieces = [guidedForm.businessName, guidedForm.topic, guidedForm.task].filter(Boolean);
     return pieces.length ? pieces.join(" · ") : "Build a more tailored prompt";
-  }, [form.businessName, form.topic, form.task]);
+  }, [guidedForm.businessName, guidedForm.topic, guidedForm.task]);
 
-  const handleChange = (
-    event: ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >,
+  const simpleSummary = useMemo(() => {
+    const trimmed = description.trim();
+    return trimmed ? trimmed.slice(0, 90) : "Describe the prompt in your own words";
+  }, [description]);
+
+  const handleGuidedChange = (
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
   ) => {
     const { name, value } = event.target;
-    setForm((current) => ({ ...current, [name]: value }));
+    setGuidedForm((current) => ({ ...current, [name]: value }));
     setFormError(null);
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
+
+    if (mode === "simple" && !description.trim()) {
+      setFormError("Please describe what you need first.");
+      return;
+    }
+
+    if (mode === "guided") {
+      const hasAnyValue = Object.values(guidedForm).some((value) => value.trim().length > 0);
+      if (!hasAnyValue) {
+        setFormError("Please provide at least one detail before generating a prompt.");
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     setFormError(null);
 
     try {
-      const params = buildQueryParams(form);
-      const query = params.toString();
-
-      if (!query) {
-        setFormError(
-          "Please provide at least one detail before generating a prompt.",
-        );
-        return;
-      }
-
-      router.push(`/build?${query}`);
+      const params = buildQueryParams(mode, guidedForm, description);
+      router.push(`/build?${params.toString()}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -162,239 +191,256 @@ export default function HomePage() {
   return (
     <>
       <Navbar />
-
-      <main className="noise relative overflow-hidden">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(178,74,47,0.12),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(23,19,17,0.08),transparent_24%)]"
-        />
-
-        <section className="relative mx-auto flex min-h-[calc(100vh-5rem)] max-w-7xl items-center px-4 py-10 sm:px-6 lg:px-8">
-          <div className="grid w-full gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-10">
-            <div className="flex flex-col justify-center">
-              <p className="inline-flex w-fit items-center gap-2 rounded-full border border-[color:theme(--color-border)] bg-white/80 px-4 py-2 text-xs font-semibold tracking-[0.2em] text-muted uppercase backdrop-blur">
-                <Sparkles className="h-4 w-4 text-accent" />
-                Prompt generation with a sharper brief
-              </p>
-
-              <h1 className="mt-6 max-w-3xl text-5xl font-black leading-[0.92] tracking-tight text-ink sm:text-6xl lg:text-7xl">
-                Tell us the shape of the task.
-                <span className="block text-accent">Get a better prompt.</span>
-              </h1>
-
-              <p className="mt-6 max-w-2xl text-base leading-7 text-muted sm:text-lg">
-                PromptForge turns loose ideas into a structured brief and then
-                into a ready-to-paste prompt. Add a few details and the AI can
-                aim with a steadier hand.
-              </p>
-
-              <form
-                onSubmit={handleSubmit}
-                className="mt-10 rounded-[2.25rem] border border-[color:theme(--color-border)] bg-white/80 p-4 shadow-[0_30px_100px_rgba(23,19,17,0.08)] backdrop-blur-sm sm:p-5"
-              >
-                <div className="grid gap-5 md:grid-cols-2">
-                  <div className="md:col-span-2">
-                    <FieldLabel
-                      title="Business name"
-                      htmlFor="businessName"
-                      description="Optional. Helps ground the prompt in the brand or company name."
-                    />
-                    <input
-                      id="businessName"
-                      name="businessName"
-                      value={form.businessName}
-                      onChange={handleChange}
-                      placeholder="Acme Studio"
-                      className="w-full rounded-[1.35rem] border border-transparent bg-[#fffdf8] px-5 py-4 text-sm leading-6 text-ink outline-none transition placeholder:text-muted focus:border-[rgba(178,74,47,0.35)] focus:bg-white"
-                    />
-                  </div>
-
-                  <div>
-                    <FieldLabel
-                      title="Business type"
-                      htmlFor="businessType"
-                      description="Choose the closest fit for the brand."
-                    />
-                    <select
-                      id="businessType"
-                      name="businessType"
-                      value={form.businessType}
-                      onChange={handleChange}
-                      className="w-full rounded-[1.35rem] border border-transparent bg-[#fffdf8] px-5 py-4 text-sm leading-6 text-ink outline-none transition focus:border-[rgba(178,74,47,0.35)] focus:bg-white"
-                    >
-                      <option value="">Select one</option>
-                      {BUSINESS_TYPES.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <FieldLabel
-                      title="Task"
-                      htmlFor="task"
-                      description="What should the AI actually produce?"
-                    />
-                    <select
-                      id="task"
-                      name="task"
-                      value={form.task}
-                      onChange={handleChange}
-                      className="w-full rounded-[1.35rem] border border-transparent bg-[#fffdf8] px-5 py-4 text-sm leading-6 text-ink outline-none transition focus:border-[rgba(178,74,47,0.35)] focus:bg-white"
-                    >
-                      <option value="">Select one</option>
-                      {TASK_OPTIONS.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <FieldLabel
-                      title="Topic"
-                      htmlFor="topic"
-                      description="The subject or campaign theme."
-                    />
-                    <input
-                      id="topic"
-                      name="topic"
-                      value={form.topic}
-                      onChange={handleChange}
-                      placeholder="New product launch"
-                      className="w-full rounded-[1.35rem] border border-transparent bg-[#fffdf8] px-5 py-4 text-sm leading-6 text-ink outline-none transition placeholder:text-muted focus:border-[rgba(178,74,47,0.35)] focus:bg-white"
-                    />
-                  </div>
-
-                  <div>
-                    <FieldLabel
-                      title="Target audience"
-                      htmlFor="audience"
-                      description="Who should the prompt speak to?"
-                    />
-                    <input
-                      id="audience"
-                      name="audience"
-                      value={form.audience}
-                      onChange={handleChange}
-                      placeholder="Small business owners"
-                      className="w-full rounded-[1.35rem] border border-transparent bg-[#fffdf8] px-5 py-4 text-sm leading-6 text-ink outline-none transition placeholder:text-muted focus:border-[rgba(178,74,47,0.35)] focus:bg-white"
-                    />
-                  </div>
-
-                  <div>
-                    <FieldLabel
-                      title="Tone"
-                      htmlFor="tone"
-                      description="This sets the mood of the final prompt."
-                    />
-                    <select
-                      id="tone"
-                      name="tone"
-                      value={form.tone}
-                      onChange={handleChange}
-                      className="w-full rounded-[1.35rem] border border-transparent bg-[#fffdf8] px-5 py-4 text-sm leading-6 text-ink outline-none transition focus:border-[rgba(178,74,47,0.35)] focus:bg-white"
-                    >
-                      <option value="">Select one</option>
-                      {TONE_OPTIONS.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <FieldLabel
-                      title="Prompt length"
-                      htmlFor="outputLength"
-                      description="How detailed should the generated prompt be?"
-                    />
-                    <select
-                      id="outputLength"
-                      name="outputLength"
-                      value={form.outputLength}
-                      onChange={handleChange}
-                      className="w-full rounded-[1.35rem] border border-transparent bg-[#fffdf8] px-5 py-4 text-sm leading-6 text-ink outline-none transition focus:border-[rgba(178,74,47,0.35)] focus:bg-white"
-                    >
-                      <option value="">Select one</option>
-                      {LENGTH_OPTIONS.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <FieldLabel
-                      title="Platform"
-                      htmlFor="platform"
-                      description="Where will this prompt be used?"
-                    />
-                    <select
-                      id="platform"
-                      name="platform"
-                      value={form.platform}
-                      onChange={handleChange}
-                      className="w-full rounded-[1.35rem] border border-transparent bg-[#fffdf8] px-5 py-4 text-sm leading-6 text-ink outline-none transition focus:border-[rgba(178,74,47,0.35)] focus:bg-white"
-                    >
-                      <option value="">Select one</option>
-                      {PLATFORM_OPTIONS.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <FieldLabel
-                      title="Key details"
-                      htmlFor="keyPoints"
-                      description="Bullet-like shorthand is fine. List the facts, constraints, offers, or must-haves."
-                    />
-                    <textarea
-                      id="keyPoints"
-                      name="keyPoints"
-                      value={form.keyPoints}
-                      onChange={handleChange}
-                      rows={4}
-                      placeholder="Launch date, eco-friendly packaging, premium positioning, free shipping"
-                      className="w-full resize-none rounded-[1.35rem] border border-transparent bg-[#fffdf8] px-5 py-4 text-sm leading-6 text-ink outline-none transition placeholder:text-muted focus:border-[rgba(178,74,47,0.35)] focus:bg-white"
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <FieldLabel
-                      title="Extra notes"
-                      htmlFor="notes"
-                      description="Anything special the AI should know about voice, format, restrictions, or goals."
-                    />
-                    <textarea
-                      id="notes"
-                      name="notes"
-                      value={form.notes}
-                      onChange={handleChange}
-                      rows={4}
-                      placeholder="Avoid jargon, emphasize trust, include a call to action, keep the language clear and human"
-                      className="w-full resize-none rounded-[1.35rem] border border-transparent bg-[#fffdf8] px-5 py-4 text-sm leading-6 text-ink outline-none transition placeholder:text-muted focus:border-[rgba(178,74,47,0.35)] focus:bg-white"
-                    />
-                  </div>
+      <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <section className="noise">
+          <div className="mx-auto grid gap-8 lg:grid-cols-[1.15fr_0.85fr]">
+            <div className="paper-card rounded-[2.25rem] p-6 sm:p-8">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="inline-flex items-center gap-2 rounded-full border border-[color:theme(--color-border)] bg-white/70 px-4 py-2 text-xs font-semibold tracking-[0.18em] text-muted uppercase">
+                  <Sparkles className="h-4 w-4" />
+                  Prompt generation with a sharper brief
+                </span>
+                <div className="inline-flex rounded-full border border-[color:theme(--color-border)] bg-white/70 p-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode("guided");
+                      setFormError(null);
+                    }}
+                    className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                      mode === "guided"
+                        ? "bg-ink text-surface"
+                        : "text-muted hover:bg-black/5 hover:text-ink"
+                    }`}
+                  >
+                    Guided
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode("simple");
+                      setFormError(null);
+                    }}
+                    className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                      mode === "simple"
+                        ? "bg-ink text-surface"
+                        : "text-muted hover:bg-black/5 hover:text-ink"
+                    }`}
+                  >
+                    Simple
+                  </button>
                 </div>
+              </div>
+
+              <div className="mt-8">
+                <p className="text-xs font-semibold tracking-[0.2em] text-muted uppercase">
+                  {mode === "simple" ? "Simple mode" : "Guided mode"}
+                </p>
+                <h1 className="mt-3 text-4xl font-black leading-tight text-ink sm:text-5xl">
+                  {mode === "simple"
+                    ? "Describe the prompt in plain language."
+                    : "Tell us the shape of the task. Get a better prompt."}
+                </h1>
+                <p className="mt-4 max-w-2xl text-base leading-7 text-muted">
+                  {mode === "simple"
+                    ? "One textarea, fewer decisions, faster spark. Type what you need and let the forge shape it."
+                    : "PromptForge turns loose ideas into a structured brief and then into a ready-to-paste prompt. Add a few details and the AI can aim with a steadier hand."}
+                </p>
+              </div>
+
+              <form onSubmit={handleSubmit} className="mt-8">
+                {mode === "simple" ? (
+                  <div>
+                    <FieldLabel
+                      title="Describe what you need"
+                      htmlFor="description"
+                      description="Tell the AI the goal, audience, tone, format, and any must-haves in a single box."
+                    />
+                    <textarea
+                      id="description"
+                      name="description"
+                      value={description}
+                      onChange={(event) => {
+                        setDescription(event.target.value);
+                        setFormError(null);
+                      }}
+                      rows={10}
+                      placeholder="Example: Write a persuasive Instagram caption for a handmade candle brand. Keep it warm, elegant, and short. Mention natural ingredients and include a subtle call to action."
+                      className="mt-3 w-full resize-none rounded-[1.5rem] border border-transparent bg-[#fffdf8] px-5 py-4 text-sm leading-6 text-ink outline-none transition placeholder:text-muted focus:border-[rgba(178,74,47,0.35)] focus:bg-white"
+                    />
+                  </div>
+                ) : (
+                  <div className="grid gap-5 md:grid-cols-2">
+                    <div>
+                      <FieldLabel title="Business name" htmlFor="businessName" />
+                      <input
+                        id="businessName"
+                        name="businessName"
+                        value={guidedForm.businessName}
+                        onChange={handleGuidedChange}
+                        placeholder="Your brand or project"
+                        className="mt-3 w-full rounded-[1.35rem] border border-transparent bg-[#fffdf8] px-5 py-4 text-sm text-ink outline-none transition placeholder:text-muted focus:border-[rgba(178,74,47,0.35)] focus:bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <FieldLabel title="Business type" htmlFor="businessType" />
+                      <select
+                        id="businessType"
+                        name="businessType"
+                        value={guidedForm.businessType}
+                        onChange={handleGuidedChange}
+                        className="mt-3 w-full rounded-[1.35rem] border border-transparent bg-[#fffdf8] px-5 py-4 text-sm text-ink outline-none transition focus:border-[rgba(178,74,47,0.35)] focus:bg-white"
+                      >
+                        <option value="">Select one</option>
+                        {BUSINESS_TYPES.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <FieldLabel title="Task" htmlFor="task" />
+                      <select
+                        id="task"
+                        name="task"
+                        value={guidedForm.task}
+                        onChange={handleGuidedChange}
+                        className="mt-3 w-full rounded-[1.35rem] border border-transparent bg-[#fffdf8] px-5 py-4 text-sm text-ink outline-none transition focus:border-[rgba(178,74,47,0.35)] focus:bg-white"
+                      >
+                        <option value="">Select one</option>
+                        {TASK_OPTIONS.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <FieldLabel title="Topic" htmlFor="topic" />
+                      <input
+                        id="topic"
+                        name="topic"
+                        value={guidedForm.topic}
+                        onChange={handleGuidedChange}
+                        placeholder="What is this about?"
+                        className="mt-3 w-full rounded-[1.35rem] border border-transparent bg-[#fffdf8] px-5 py-4 text-sm text-ink outline-none transition placeholder:text-muted focus:border-[rgba(178,74,47,0.35)] focus:bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <FieldLabel title="Audience" htmlFor="audience" />
+                      <input
+                        id="audience"
+                        name="audience"
+                        value={guidedForm.audience}
+                        onChange={handleGuidedChange}
+                        placeholder="Who is it for?"
+                        className="mt-3 w-full rounded-[1.35rem] border border-transparent bg-[#fffdf8] px-5 py-4 text-sm text-ink outline-none transition placeholder:text-muted focus:border-[rgba(178,74,47,0.35)] focus:bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <FieldLabel title="Tone" htmlFor="tone" />
+                      <select
+                        id="tone"
+                        name="tone"
+                        value={guidedForm.tone}
+                        onChange={handleGuidedChange}
+                        className="mt-3 w-full rounded-[1.35rem] border border-transparent bg-[#fffdf8] px-5 py-4 text-sm text-ink outline-none transition focus:border-[rgba(178,74,47,0.35)] focus:bg-white"
+                      >
+                        <option value="">Select one</option>
+                        {TONE_OPTIONS.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <FieldLabel title="Prompt length" htmlFor="outputLength" />
+                      <select
+                        id="outputLength"
+                        name="outputLength"
+                        value={guidedForm.outputLength}
+                        onChange={handleGuidedChange}
+                        className="mt-3 w-full rounded-[1.35rem] border border-transparent bg-[#fffdf8] px-5 py-4 text-sm text-ink outline-none transition focus:border-[rgba(178,74,47,0.35)] focus:bg-white"
+                      >
+                        <option value="">Select one</option>
+                        {LENGTH_OPTIONS.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <FieldLabel title="Platform" htmlFor="platform" />
+                      <select
+                        id="platform"
+                        name="platform"
+                        value={guidedForm.platform}
+                        onChange={handleGuidedChange}
+                        className="mt-3 w-full rounded-[1.35rem] border border-transparent bg-[#fffdf8] px-5 py-4 text-sm text-ink outline-none transition focus:border-[rgba(178,74,47,0.35)] focus:bg-white"
+                      >
+                        <option value="">Select one</option>
+                        {PLATFORM_OPTIONS.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <FieldLabel
+                        title="Key points"
+                        htmlFor="keyPoints"
+                        description="Mention facts, features, constraints, or must-include lines."
+                      />
+                      <textarea
+                        id="keyPoints"
+                        name="keyPoints"
+                        value={guidedForm.keyPoints}
+                        onChange={handleGuidedChange}
+                        rows={4}
+                        placeholder="Feature list, offer, deadlines, keywords, or anything the prompt should respect"
+                        className="mt-3 w-full resize-none rounded-[1.35rem] border border-transparent bg-[#fffdf8] px-5 py-4 text-sm leading-6 text-ink outline-none transition placeholder:text-muted focus:border-[rgba(178,74,47,0.35)] focus:bg-white"
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <FieldLabel
+                        title="Extra notes"
+                        htmlFor="notes"
+                        description="Anything special the AI should know about voice, format, restrictions, or goals."
+                      />
+                      <textarea
+                        id="notes"
+                        name="notes"
+                        value={guidedForm.notes}
+                        onChange={handleGuidedChange}
+                        rows={4}
+                        placeholder="Avoid jargon, emphasize trust, include a call to action, keep the language clear and human"
+                        className="mt-3 w-full resize-none rounded-[1.35rem] border border-transparent bg-[#fffdf8] px-5 py-4 text-sm leading-6 text-ink outline-none transition placeholder:text-muted focus:border-[rgba(178,74,47,0.35)] focus:bg-white"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {formError ? (
-                  <p className="mt-4 text-sm leading-6 text-red-600">
-                    {formError}
-                  </p>
+                  <p className="mt-4 text-sm leading-6 text-red-600">{formError}</p>
                 ) : null}
 
-                <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-sm leading-6 text-muted">{formSummary}</p>
-
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm leading-6 text-muted">
+                    {mode === "simple" ? simpleSummary : guidedSummary}
+                  </p>
                   <button
                     type="submit"
                     disabled={isSubmitting}
@@ -411,16 +457,16 @@ export default function HomePage() {
               <div className="paper-card flex w-full max-w-xl flex-col justify-between rounded-[2.25rem] p-6 sm:p-8 lg:min-h-[32rem]">
                 <div>
                   <p className="text-xs font-semibold tracking-[0.2em] text-muted uppercase">
-                    What this adds
+                    Why this helps
                   </p>
                   <div className="mt-5 space-y-4 text-sm leading-7 text-muted">
                     <p>
-                      More context means the generated prompt can sound less
-                      generic and more on target.
+                      Guided mode gives the AI more structure, which usually means sharper,
+                      less generic output.
                     </p>
                     <p>
-                      Business name, task, audience, tone, platform, and key
-                      details give the AI a better map before it writes.
+                      Simple mode is faster and friendlier for messy ideas, one-sentence
+                      requests, or “just write the prompt for me” moments.
                     </p>
                   </div>
                 </div>
@@ -430,10 +476,8 @@ export default function HomePage() {
                     Core idea
                   </p>
                   <p className="mt-3 max-w-sm text-2xl font-black leading-tight text-ink">
-                    One loose idea.
-                    <span className="block text-accent">
-                      One guided prompt.
-                    </span>
+                    One guided brief.
+                    <span className="block text-accent">Or one plain description.</span>
                   </p>
                 </div>
               </div>

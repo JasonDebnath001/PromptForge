@@ -7,6 +7,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Brief = {
+  mode?: "guided" | "simple";
+  description?: string;
   businessName?: string;
   businessType?: string;
   topic?: string;
@@ -29,6 +31,11 @@ function cleanText(text: string) {
 function buildBrief(input: Brief) {
   const lines: string[] = [];
 
+  if (input.mode === "simple" && input.description) {
+    lines.push(`Description: ${input.description}`);
+    return lines.join("\n");
+  }
+
   if (input.businessName) lines.push(`Business name: ${input.businessName}`);
   if (input.businessType) lines.push(`Business type: ${input.businessType}`);
   if (input.task) lines.push(`Task: ${input.task}`);
@@ -40,6 +47,7 @@ function buildBrief(input: Brief) {
   if (input.platform) lines.push(`Platform: ${input.platform}`);
   if (input.keyPoints) lines.push(`Key details: ${input.keyPoints}`);
   if (input.notes) lines.push(`Extra notes: ${input.notes}`);
+  if (input.description) lines.push(`Description: ${input.description}`);
 
   return lines.length ? lines.join("\n") : "No extra brief supplied.";
 }
@@ -47,12 +55,14 @@ function buildBrief(input: Brief) {
 export async function POST(request: Request) {
   try {
     const rawBody = await request.json().catch(() => null);
+
     const body = (() => {
       if (!rawBody || typeof rawBody !== "object" || Array.isArray(rawBody)) {
         return null;
       }
 
       const validated: Brief = {};
+
       for (const [key, value] of Object.entries(rawBody)) {
         if (value == null) continue;
         if (typeof value !== "string") {
@@ -77,6 +87,7 @@ export async function POST(request: Request) {
     }
 
     const brief = buildBrief(body || {});
+    const isSimple = body?.mode === "simple" || !!body?.description;
 
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
       GEMINI_MODEL,
@@ -99,15 +110,20 @@ export async function POST(request: Request) {
               role: "user",
               parts: [
                 {
-                  text:
-                    "You are a senior prompt engineer.\n" +
-                    "Turn the following brief into one polished, ready-to-paste AI prompt.\n" +
-                    "The prompt should be detailed and accurate, but still reasonably short, around 120 to 180 words.\n" +
-                    "Use only the information provided. Do not invent facts.\n" +
-                    "Keep it in plain text.\n" +
-                    "Do not use markdown, lists, headings, or code fences.\n" +
-                    "Write the prompt so it can be pasted into another AI tool and immediately used.\n\n" +
+                  text: [
+                    "You are a senior prompt engineer.",
+                    isSimple
+                      ? "Turn the user's plain-language request into one polished, ready-to-paste AI prompt."
+                      : "Turn the following brief into one polished, ready-to-paste AI prompt.",
+                    "The prompt should be detailed and accurate, but still reasonably short, around 120 to 180 words.",
+                    "Use only the information provided.",
+                    "Do not invent facts.",
+                    "Keep it in plain text.",
+                    "Do not use markdown, lists, headings, or code fences.",
+                    "Write the prompt so it can be pasted into another AI tool and immediately used.",
+                    "",
                     `Brief:\n${brief}`,
+                  ].join("\n"),
                 },
               ],
             },
@@ -127,97 +143,47 @@ export async function POST(request: Request) {
 
     if (!response.ok) {
       let upstreamError: unknown = rawText;
-
       try {
         upstreamError = JSON.parse(rawText);
       } catch {
         // Keep raw text if it is not JSON.
       }
 
-      const status =
-        response.status >= 400 && response.status < 500 ? response.status : 502;
-
-      console.error("Gemini request failed", {
-        status: response.status,
-        model: GEMINI_MODEL,
-        upstreamError,
-      });
-
       return NextResponse.json(
         {
-          error: "Gemini request failed.",
-          status,
-          model: GEMINI_MODEL,
-          ...(process.env.NODE_ENV !== "production" ? { upstreamError } : {}),
+          error:
+            typeof upstreamError === "string"
+              ? upstreamError
+              : "Gemini returned an error.",
+          details: upstreamError,
         },
-        { status },
+        { status: response.status },
       );
     }
 
-    let data: {
+    const parsed = JSON.parse(rawText) as {
       candidates?: Array<{
-        content?: { parts?: Array<{ text?: string }> };
+        content?: {
+          parts?: Array<{ text?: string }>;
+        };
       }>;
-    } | null = null;
+    };
 
-    try {
-      data = JSON.parse(rawText);
-    } catch (parseError) {
-      console.error("Failed to parse Gemini response", {
-        error: parseError,
-        rawText,
-      });
+    const promptText = cleanText(
+      parsed?.candidates?.[0]?.content?.parts?.[0]?.text || "",
+    );
 
+    if (!promptText) {
       return NextResponse.json(
-        {
-          error: "Invalid response format from Gemini upstream.",
-          ...(process.env.NODE_ENV !== "production"
-            ? {
-                details:
-                  parseError instanceof Error
-                    ? parseError.message
-                    : String(parseError),
-              }
-            : {}),
-        },
+        { error: "No prompt was returned by Gemini." },
         { status: 502 },
       );
     }
 
-    const generatedText =
-      data?.candidates?.[0]?.content?.parts
-        ?.map((part) => part.text ?? "")
-        .join("") ?? "";
-
-    const prompt = cleanText(generatedText);
-
-    return NextResponse.json(
-      { prompt },
-      {
-        headers: {
-          "Cache-Control": "no-store",
-        },
-      },
-    );
+    return NextResponse.json({ prompt: promptText });
   } catch (error) {
-    console.error(error);
-
-    if (error instanceof Error && error.name === "AbortError") {
-      return NextResponse.json(
-        { error: "Gemini request timed out." },
-        { status: 504 },
-      );
-    }
-
-    const body: { error: string; details?: string } = {
-      error: "Unable to generate prompt.",
-    };
-
-    if (process.env.NODE_ENV !== "production") {
-      body.details =
-        error instanceof Error ? error.message : "Unknown server error";
-    }
-
-    return NextResponse.json(body, { status: 500 });
+    const message =
+      error instanceof Error ? error.message : "Unexpected error.";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
