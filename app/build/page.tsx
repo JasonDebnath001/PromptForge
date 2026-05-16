@@ -29,10 +29,17 @@ type Brief = {
 
 function readBrief(searchParams: ReturnType<typeof useSearchParams>): Brief {
   const mode = searchParams.get("mode") === "simple" ? "simple" : "guided";
+  let description = searchParams.get("description")?.trim() || "";
+
+  if (searchParams.get("description_stored") === "true") {
+    if (typeof window !== "undefined") {
+      description = window.sessionStorage.getItem("forge_description") || "";
+    }
+  }
 
   return {
     mode,
-    description: searchParams.get("description")?.trim() || "",
+    description,
     businessName: searchParams.get("businessName")?.trim() || "",
     businessType: searchParams.get("businessType")?.trim() || "",
     topic: searchParams.get("topic")?.trim() || "",

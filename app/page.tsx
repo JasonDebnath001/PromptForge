@@ -84,14 +84,24 @@ const PLATFORM_OPTIONS = [
   "Other",
 ];
 
-function buildQueryParams(mode: Mode, guidedForm: GuidedFormState, description: string) {
+function buildQueryParams(
+  mode: Mode,
+  guidedForm: GuidedFormState,
+  description: string,
+) {
   const params = new URLSearchParams();
   params.set("mode", mode);
-
   if (mode === "simple") {
     const trimmed = description.trim();
     if (trimmed) {
-      params.set("description", trimmed);
+      if (trimmed.length > 2000) {
+        if (typeof window !== "undefined") {
+          window.sessionStorage.setItem("forge_description", trimmed);
+        }
+        params.set("description_stored", "true");
+      } else {
+        params.set("description", trimmed);
+      }
     }
     return params;
   }
